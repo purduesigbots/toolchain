@@ -1,0 +1,30 @@
+jobs:
+- job: BuildToolchain
+  strategy:
+      matrix:
+        x86:
+          ChocoPlatform: --forcex86
+          MsysPath: C:\tools\msys32
+          MingwPlatform: mingw32
+        x86-64:
+          ChocoPlatform:
+          MsysPath: C:\tools\msys64
+          MingwPlatform: mingw64
+          Platform: 64bit
+  displayName: Build toolchain
+  pool:
+    vmImage: vs2017-win2016
+  steps:
+  - powershell: |
+      iex ((New-Object System.Net.WebClient).DownloadString('https://chocolatey.org/install.ps1'))
+      choco install msys2 -y $(ChocoPlatform)
+  - task: PowerShell@2
+    displayName: 'PowerShell Script'
+    inputs:
+      targetType: filePath
+      filePath: '.\build-windows-toolchain.ps1'
+      arguments: -MsysPath $(MsysPath) -MingwPlatform $(MingwPlatform)
+  - task: PublishPipelineArtifact@0
+    inputs:
+      artifactName: 'cquery-$(Platform)'
+      targetPath: 'out'
