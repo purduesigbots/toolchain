@@ -2,11 +2,12 @@ jobs:
 - job: BuildToolchain
   strategy:
       matrix:
-        x86:
+        32bit:
           ChocoPlatform: --forcex86
           MsysPath: C:\tools\msys32
           MingwPlatform: mingw32
-        x86-64:
+          Platform: 32bit
+        64bit:
           ChocoPlatform:
           MsysPath: C:\tools\msys64
           MingwPlatform: mingw64
