@@ -35,7 +35,7 @@ pacman -S --noconfirm --needed --noprogressbar \
 pip3 install --upgrade git+git://github.com/achadwick/styrene.git
 
 rm -rf ~/toolchain
-styrene --no-exe --color=no -o ~/toolchain ./windows/windows-toolchain.cfg
+styrene --no-exe --color=no -o ~/toolchain ./windows-toolchain.cfg
 cp ~/toolchain/*.zip ./output
 '@
 
