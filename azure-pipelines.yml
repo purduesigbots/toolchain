@@ -18,13 +18,14 @@ jobs:
   - powershell: |
       iex ((New-Object System.Net.WebClient).DownloadString('https://chocolatey.org/install.ps1'))
       choco install msys2 -y $(ChocoPlatform)
+    displayName: 'Install msys2'
   - task: PowerShell@2
-    displayName: 'PowerShell Script'
+    displayName: 'Build Toolchain'
     inputs:
       targetType: filePath
       filePath: '.\build-windows-toolchain.ps1'
       arguments: -MsysPath $(MsysPath) -MingwPlatform $(MingwPlatform)
   - task: PublishPipelineArtifact@0
     inputs:
-      artifactName: 'cquery-$(Platform)'
-      targetPath: 'out'
+      artifactName: 'toolchain-$(Platform)'
+      targetPath: 'output'
