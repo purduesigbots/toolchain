@@ -50,7 +50,7 @@ Write-Output $mingw_script | & $msysPath\msys2_shell.cmd -here -$mingwPlatform -
 
 Write-Information "Downloading Arm Embedded Toolchain"
 $client = New-Object System.Net.Webclient
-$ARM_ZIP_URL = "https://developer.arm.com/-/media/Files/downloads/gnu-rm/7-2017q4/gcc-arm-none-eabi-7-2017-q4-major-win32.zip"
+$ARM_ZIP_URL = "https://developer.arm.com/-/media/Files/downloads/gnu-rm/8-2018q4/gcc-arm-none-eabi-8-2018-q4-major-win32.zip"
 $zipfile = "./gcc-arm-none-eabi.zip"
 $client.DownloadFile($ARM_ZIP_URL, $zipfile)
 
