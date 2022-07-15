@@ -9,7 +9,7 @@ jobs:
           Platform: 64bit
   displayName: Build toolchain
   pool:
-    vmImage: vs2017-win2016
+    vmImage: 'windows-latest'
   steps:
   - powershell: |
       iex ((New-Object System.Net.WebClient).DownloadString('https://chocolatey.org/install.ps1'))
