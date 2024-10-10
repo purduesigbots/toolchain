@@ -70,9 +70,9 @@ Remove-Item "$arm_toolchain_dir/$arm_toolchain_subdir/share" -Recurse -ErrorActi
 Write-Information -MessageData "Adding Combining Toolchains with Unix Tools" -InformationAction Continue
 Get-ChildItem -Path $arm_toolchain_dir/$arm_toolchain_subdir | ForEach-Object {
     if (Test-Path -Path "./output/$toolchain_dir/usr/$_") {
-        Copy-Item -Path $arm_toolchain_dir/$arm_toolchain_subdir/$_/* -Destination "./output/$toolchain_dir/usr/$_"
+        Copy-Item -Path $arm_toolchain_dir/$arm_toolchain_subdir/$_/* -Destination "./output/$toolchain_dir/usr/$_" -Recurse
     } else {
-        Copy-Item -Path $arm_toolchain_dir/$arm_toolchain_subdir/$_ -Destination "./output/$toolchain_dir/usr"
+        Copy-Item -Path $arm_toolchain_dir/$arm_toolchain_subdir/$_ -Destination "./output/$toolchain_dir/usr" -Recurse
     }
 }
 
