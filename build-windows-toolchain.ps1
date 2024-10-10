@@ -35,37 +35,46 @@ pacman -S --noconfirm --needed --noprogressbar \
 pip3 install --upgrade git+https://github.com/achadwick/styrene
 
 rm -rf ~/toolchain
-styrene --no-exe --color=no -o ~/toolchain ./windows-toolchain.cfg
-cp ~/toolchain/*.zip ./output
+styrene --no-exe --no-zip --color=no -o ./output ./windows-toolchain.cfg
 '@
 
 Remove-Item "./arm-toolchain" -Recurse -ErrorAction Ignore
 Remove-Item "./output" -Recurse -ErrorAction Ignore
+Remove-Item "./artifact" -Recurse -ErrorAction Ignore
 
 New-Item -ItemType Directory -Force -Path ./output
 New-Item -ItemType Directory -Force -Path ./arm-toolchain
+New-Item -ItemType Directory -Force -Path ./artifact
 
-Write-Information "Obtaining unix tools for $mingwPlatform"
+Write-Information -MessageData "Obtaining unix tools for $mingwPlatform" -InformationAction Continue
 Write-Output $mingw_script | & $msysPath\msys2_shell.cmd -here -$mingwPlatform -no-start -defterm
 
-Write-Information "Downloading Arm Embedded Toolchain"
+Write-Information -MessageData "Downloading Arm Embedded Toolchain" -InformationAction Continue
 $client = New-Object System.Net.Webclient
-$ARM_ZIP_URL = "https://developer.arm.com/-/media/Files/downloads/gnu-rm/10-2020q4/gcc-arm-none-eabi-10-2020-q4-major-win32.zip"
+$ARM_ZIP_URL = "https://developer.arm.com/-/media/Files/downloads/gnu/13.3.rel1/binrel/arm-gnu-toolchain-13.3.rel1-mingw-w64-i686-arm-none-eabi.zip"
 $zipfile = "./gcc-arm-none-eabi.zip"
 $client.DownloadFile($ARM_ZIP_URL, $zipfile)
 
 $arm_toolchain_dir = "./arm-toolchain"
 
-Write-Information "Extracting Arm Embedded Toolchain"
-7z x -o"$arm_toolchain_dir/usr" $zipfile
+Write-Information -MessageData "Extracting Arm Embedded Toolchain" -InformationAction Continue
+Expand-Archive -Path $zipfile -DestinationPath $arm_toolchain_dir
 
-Write-Information "Removing extra files from Arm Embedded Toolchain"
-Remove-Item "$arm_toolchain_dir/usr/share" -Recurse -ErrorAction Ignore
+$arm_toolchain_dir = "./arm-toolchain"
+$toolchain_dir = Get-ChildItem -Path "./output" -Directory -Name
+$arm_toolchain_subdir = Get-ChildItem -Path $arm_toolchain_dir -Directory -Name
 
-Write-Information "Adding Combining Toolchains with Unix Tools"
-Get-ChildItem "./output" -Filter *.zip | ForEach-Object {
-    7z d "./output/$_" ./_scripts ./mingw*
-    7z a "./output/$_" ./arm-toolchain/*
+Write-Information -MessageData "Removing extra files from Arm Embedded Toolchain" -InformationAction Continue
+Remove-Item "$arm_toolchain_dir/$arm_toolchain_subdir/share" -Recurse -ErrorAction Ignore
+
+Write-Information -MessageData "Adding Combining Toolchains with Unix Tools" -InformationAction Continue
+Get-ChildItem -Path $arm_toolchain_dir/$arm_toolchain_subdir | ForEach-Object {
+    if (Test-Path -Path "./output/$toolchain_dir/usr/$_") {
+        Copy-Item -Path $arm_toolchain_dir/$arm_toolchain_subdir/$_/* -Destination "./output/$toolchain_dir/usr/$_" -Recurse
+    } else {
+        Copy-Item -Path $arm_toolchain_dir/$arm_toolchain_subdir/$_ -Destination "./output/$toolchain_dir/usr" -Recurse
+    }
 }
 
-exit 0
+Write-Information -MessageData "Creating Compressed Archive" -InformationAction Continue
+Compress-Archive -Path "./output/$toolchain_dir/usr" -DestinationPath "./artifact/pros-toolchain-windows.zip"

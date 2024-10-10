@@ -21,7 +21,7 @@ jobs:
       targetType: filePath
       filePath: '.\build-windows-toolchain.ps1'
       arguments: -MsysPath $(MsysPath) -MingwPlatform $(MingwPlatform)
-  - task: PublishPipelineArtifact@0
+  - task: PublishPipelineArtifact@1
     inputs:
       artifactName: 'toolchain-$(Platform)'
-      targetPath: 'output'
+      targetPath: 'artifact'
