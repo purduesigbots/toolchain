@@ -1,6 +1,6 @@
 Param (
-    $msysPath = "C:\tools\msys64",
-    $mingwPlatform = "mingw64"
+  $msysPath = "C:\tools\msys64",
+  $mingwPlatform = "mingw64"
 )
 
 $mingw_script = @'
@@ -30,9 +30,14 @@ pacman -S --noconfirm --needed --noprogressbar \
   ${PKG_PREFIX}-nsis \
   ${PKG_PREFIX}-binutils \
   ${PKG_PREFIX}-python-pip \
+  ${PKG_PREFIX}-python-setuptools \
   git
 
 pip3 install --break-system-packages --upgrade git+https://github.com/achadwick/styrene
+
+# Patch styrene for Python 3.13+ compatibility (SafeConfigParser was removed)
+STYRENE_CMDLINE=$(python3 -c "import styrene.cmdline; print(styrene.cmdline.__file__)")
+sed -i 's/configparser\.SafeConfigParser/configparser.ConfigParser/g' "$STYRENE_CMDLINE"
 
 rm -rf ~/toolchain
 styrene --no-exe --no-zip --color=no -o ./output ./windows-toolchain.cfg
