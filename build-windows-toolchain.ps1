@@ -18,7 +18,7 @@ case "$MSYSTEM" in
         ;;
     *)
         echo >&2 "$0 must only be called from a MINGW64/32 login shell."
-		read -p "bad"
+        read -p "bad"
         exit 1
         ;;
 esac
@@ -29,7 +29,7 @@ pacman -S --noconfirm --needed --noprogressbar \
   ${PKG_PREFIX}-gcc \
   ${PKG_PREFIX}-nsis \
   ${PKG_PREFIX}-binutils \
-  ${PKG_PREFIX}-python3-pip \
+  ${PKG_PREFIX}-python-pip \
   git
 
 pip3 install --upgrade git+https://github.com/achadwick/styrene
@@ -47,7 +47,11 @@ New-Item -ItemType Directory -Force -Path ./arm-toolchain
 New-Item -ItemType Directory -Force -Path ./artifact
 
 Write-Information -MessageData "Obtaining unix tools for $mingwPlatform" -InformationAction Continue
-Write-Output $mingw_script | & $msysPath\msys2_shell.cmd -here -$mingwPlatform -no-start -defterm
+
+# Write script to a temp file without BOM to avoid bash parsing issues
+$tempScriptPath = Join-Path $env:TEMP "mingw_script.sh"
+[System.IO.File]::WriteAllText($tempScriptPath, $mingw_script, [System.Text.UTF8Encoding]::new($false))
+Get-Content $tempScriptPath | & $msysPath\msys2_shell.cmd -here -$mingwPlatform -no-start -defterm
 
 Write-Information -MessageData "Downloading Arm Embedded Toolchain" -InformationAction Continue
 $client = New-Object System.Net.Webclient
@@ -61,19 +65,22 @@ Write-Information -MessageData "Extracting Arm Embedded Toolchain" -InformationA
 Expand-Archive -Path $zipfile -DestinationPath $arm_toolchain_dir
 
 $arm_toolchain_dir = "./arm-toolchain"
-$toolchain_dir = Get-ChildItem -Path "./output" -Directory -Name
-$arm_toolchain_subdir = Get-ChildItem -Path $arm_toolchain_dir -Directory -Name
+# Get only the first (and should be only) top-level directory
+$toolchain_dir = (Get-ChildItem -Path "./output" -Directory | Select-Object -First 1).Name
+$arm_toolchain_subdir = (Get-ChildItem -Path $arm_toolchain_dir -Directory | Select-Object -First 1).Name
 
 Write-Information -MessageData "Removing extra files from Arm Embedded Toolchain" -InformationAction Continue
-Remove-Item "$arm_toolchain_dir/$arm_toolchain_subdir/share" -Recurse -ErrorAction Ignore
+Remove-Item "$arm_toolchain_dir\$arm_toolchain_subdir\share" -Recurse -ErrorAction Ignore
 
 Write-Information -MessageData "Adding Combining Toolchains with Unix Tools" -InformationAction Continue
-Get-ChildItem -Path $arm_toolchain_dir/$arm_toolchain_subdir | ForEach-Object {
-    if (Test-Path -Path "./output/$toolchain_dir/usr/$_") {
-        Copy-Item -Path $arm_toolchain_dir/$arm_toolchain_subdir/$_/* -Destination "./output/$toolchain_dir/usr/$_" -Recurse
-    } else {
-        Copy-Item -Path $arm_toolchain_dir/$arm_toolchain_subdir/$_ -Destination "./output/$toolchain_dir/usr" -Recurse
-    }
+Get-ChildItem -Path "$arm_toolchain_dir\$arm_toolchain_subdir" | ForEach-Object {
+  $itemName = $_.Name
+  if (Test-Path -Path "./output/$toolchain_dir/usr/$itemName") {
+    Copy-Item -Path "$arm_toolchain_dir\$arm_toolchain_subdir\$itemName\*" -Destination "./output/$toolchain_dir/usr/$itemName" -Recurse -Force
+  }
+  else {
+    Copy-Item -Path "$arm_toolchain_dir\$arm_toolchain_subdir\$itemName" -Destination "./output/$toolchain_dir/usr" -Recurse -Force
+  }
 }
 
 Write-Information -MessageData "Creating Compressed Archive" -InformationAction Continue
