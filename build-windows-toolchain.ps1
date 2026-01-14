@@ -32,7 +32,7 @@ pacman -S --noconfirm --needed --noprogressbar \
   ${PKG_PREFIX}-python-pip \
   git
 
-pip3 install --upgrade git+https://github.com/achadwick/styrene
+pip3 install --break-system-packages --upgrade git+https://github.com/achadwick/styrene
 
 rm -rf ~/toolchain
 styrene --no-exe --no-zip --color=no -o ./output ./windows-toolchain.cfg
