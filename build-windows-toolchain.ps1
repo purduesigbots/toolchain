@@ -71,7 +71,12 @@ Expand-Archive -Path $zipfile -DestinationPath $arm_toolchain_dir
 
 # Get only the first (and should be only) top-level directory
 $toolchain_dir = (Get-ChildItem -Path "./output" -Directory | Select-Object -First 1).Name
-$arm_toolchain_subdir = (Get-ChildItem -Path $arm_toolchain_dir -Directory | Select-Object -First 1).Name
+
+# Find the ARM toolchain root by looking for the directory that contains bin/arm-none-eabi-gcc.exe
+$arm_toolchain_subdir = Get-ChildItem -Path $arm_toolchain_dir -Directory | Where-Object {
+  $candidatePath = Join-Path $_.FullName "bin\arm-none-eabi-gcc.exe"
+  Test-Path $candidatePath
+} | Select-Object -First 1 -ExpandProperty Name
 
 # Debug output
 Write-Information -MessageData "Toolchain dir: $toolchain_dir" -InformationAction Continue
@@ -83,7 +88,9 @@ if (-not $toolchain_dir) {
 }
 
 if (-not $arm_toolchain_subdir) {
-  Write-Error "Failed to find ARM toolchain directory in $arm_toolchain_dir"
+  Write-Error "Failed to find ARM toolchain directory containing bin/arm-none-eabi-gcc.exe in $arm_toolchain_dir"
+  Write-Information -MessageData "Contents of $arm_toolchain_dir :" -InformationAction Continue
+  Get-ChildItem -Path $arm_toolchain_dir -Recurse -Depth 2 | ForEach-Object { Write-Information -MessageData "  $($_.FullName)" -InformationAction Continue }
   exit 1
 }
 
