@@ -69,23 +69,63 @@ $arm_toolchain_dir = "./arm-toolchain"
 Write-Information -MessageData "Extracting Arm Embedded Toolchain" -InformationAction Continue
 Expand-Archive -Path $zipfile -DestinationPath $arm_toolchain_dir
 
-$arm_toolchain_dir = "./arm-toolchain"
 # Get only the first (and should be only) top-level directory
 $toolchain_dir = (Get-ChildItem -Path "./output" -Directory | Select-Object -First 1).Name
 $arm_toolchain_subdir = (Get-ChildItem -Path $arm_toolchain_dir -Directory | Select-Object -First 1).Name
 
+# Debug output
+Write-Information -MessageData "Toolchain dir: $toolchain_dir" -InformationAction Continue
+Write-Information -MessageData "ARM toolchain subdir: $arm_toolchain_subdir" -InformationAction Continue
+
+if (-not $toolchain_dir) {
+  Write-Error "Failed to find styrene output directory in ./output"
+  exit 1
+}
+
+if (-not $arm_toolchain_subdir) {
+  Write-Error "Failed to find ARM toolchain directory in $arm_toolchain_dir"
+  exit 1
+}
+
 Write-Information -MessageData "Removing extra files from Arm Embedded Toolchain" -InformationAction Continue
 Remove-Item "$arm_toolchain_dir\$arm_toolchain_subdir\share" -Recurse -ErrorAction Ignore
 
-Write-Information -MessageData "Adding Combining Toolchains with Unix Tools" -InformationAction Continue
+Write-Information -MessageData "Combining Toolchains with Unix Tools" -InformationAction Continue
+
+# List what we're about to copy
+Write-Information -MessageData "Contents of ARM toolchain:" -InformationAction Continue
+Get-ChildItem -Path "$arm_toolchain_dir\$arm_toolchain_subdir" | ForEach-Object { Write-Information -MessageData "  - $($_.Name)" -InformationAction Continue }
+
+Write-Information -MessageData "Contents of output usr folder before merge:" -InformationAction Continue
+Get-ChildItem -Path "./output/$toolchain_dir/usr" | ForEach-Object { Write-Information -MessageData "  - $($_.Name)" -InformationAction Continue }
+
 Get-ChildItem -Path "$arm_toolchain_dir\$arm_toolchain_subdir" | ForEach-Object {
   $itemName = $_.Name
-  if (Test-Path -Path "./output/$toolchain_dir/usr/$itemName") {
-    Copy-Item -Path "$arm_toolchain_dir\$arm_toolchain_subdir\$itemName\*" -Destination "./output/$toolchain_dir/usr/$itemName" -Recurse -Force
+  $sourcePath = Join-Path "$arm_toolchain_dir\$arm_toolchain_subdir" $itemName
+  $destPath = Join-Path "./output/$toolchain_dir/usr" $itemName
+  
+  Write-Information -MessageData "Processing: $itemName" -InformationAction Continue
+  
+  if (Test-Path -Path $destPath) {
+    Write-Information -MessageData "  Merging into existing folder: $destPath" -InformationAction Continue
+    Copy-Item -Path "$sourcePath\*" -Destination $destPath -Recurse -Force
   }
   else {
-    Copy-Item -Path "$arm_toolchain_dir\$arm_toolchain_subdir\$itemName" -Destination "./output/$toolchain_dir/usr" -Recurse -Force
+    Write-Information -MessageData "  Copying new folder to: ./output/$toolchain_dir/usr" -InformationAction Continue
+    Copy-Item -Path $sourcePath -Destination "./output/$toolchain_dir/usr" -Recurse -Force
   }
+}
+
+Write-Information -MessageData "Contents of output usr folder after merge:" -InformationAction Continue
+Get-ChildItem -Path "./output/$toolchain_dir/usr" | ForEach-Object { Write-Information -MessageData "  - $($_.Name)" -InformationAction Continue }
+
+# Verify arm-none-eabi-gcc exists
+$gccPath = "./output/$toolchain_dir/usr/bin/arm-none-eabi-gcc.exe"
+if (Test-Path $gccPath) {
+    Write-Information -MessageData "SUCCESS: ARM GCC found at $gccPath" -InformationAction Continue
+} else {
+    Write-Error "FAILED: ARM GCC not found at $gccPath"
+    exit 1
 }
 
 Write-Information -MessageData "Creating Compressed Archive" -InformationAction Continue
