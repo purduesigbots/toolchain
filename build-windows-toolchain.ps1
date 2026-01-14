@@ -69,69 +69,95 @@ $arm_toolchain_dir = "./arm-toolchain"
 Write-Information -MessageData "Extracting Arm Embedded Toolchain" -InformationAction Continue
 Expand-Archive -Path $zipfile -DestinationPath $arm_toolchain_dir
 
-# Get only the first (and should be only) top-level directory
+# Debug: Show what was extracted
+Write-Host "Contents of arm-toolchain after extraction:"
+Get-ChildItem -Path $arm_toolchain_dir -Recurse -Depth 3 | ForEach-Object { 
+  Write-Host "  $($_.FullName)"
+}
+
+# Get only the first (and should be only) top-level directory from styrene output
 $toolchain_dir = (Get-ChildItem -Path "./output" -Directory | Select-Object -First 1).Name
 
-# Find the ARM toolchain root by looking for the directory that contains bin/arm-none-eabi-gcc.exe
-$arm_toolchain_subdir = Get-ChildItem -Path $arm_toolchain_dir -Directory | Where-Object {
-  $candidatePath = Join-Path $_.FullName "bin\arm-none-eabi-gcc.exe"
-  Test-Path $candidatePath
-} | Select-Object -First 1 -ExpandProperty Name
+# Find the ARM toolchain root - it could be:
+# 1. A subdirectory containing bin/arm-none-eabi-gcc.exe
+# 2. The arm-toolchain dir itself if files extracted directly
+$arm_toolchain_root = $null
+
+# First check if gcc is directly in arm-toolchain/bin
+if (Test-Path "$arm_toolchain_dir/bin/arm-none-eabi-gcc.exe") {
+  $arm_toolchain_root = (Resolve-Path $arm_toolchain_dir).Path
+  Write-Host "Found ARM toolchain directly in: $arm_toolchain_root"
+}
+else {
+  # Look in subdirectories
+  $found = Get-ChildItem -Path $arm_toolchain_dir -Directory | Where-Object {
+    Test-Path (Join-Path $_.FullName "bin/arm-none-eabi-gcc.exe")
+  } | Select-Object -First 1
+    
+  if ($found) {
+    $arm_toolchain_root = $found.FullName
+    Write-Host "Found ARM toolchain in subdirectory: $arm_toolchain_root"
+  }
+}
 
 # Debug output
-Write-Information -MessageData "Toolchain dir: $toolchain_dir" -InformationAction Continue
-Write-Information -MessageData "ARM toolchain subdir: $arm_toolchain_subdir" -InformationAction Continue
+Write-Host "Toolchain dir: $toolchain_dir"
+Write-Host "ARM toolchain root: $arm_toolchain_root"
 
 if (-not $toolchain_dir) {
   Write-Error "Failed to find styrene output directory in ./output"
   exit 1
 }
 
-if (-not $arm_toolchain_subdir) {
-  Write-Error "Failed to find ARM toolchain directory containing bin/arm-none-eabi-gcc.exe in $arm_toolchain_dir"
-  Write-Information -MessageData "Contents of $arm_toolchain_dir :" -InformationAction Continue
-  Get-ChildItem -Path $arm_toolchain_dir -Recurse -Depth 2 | ForEach-Object { Write-Information -MessageData "  $($_.FullName)" -InformationAction Continue }
+if (-not $arm_toolchain_root) {
+  Write-Error "Failed to find ARM toolchain directory containing bin/arm-none-eabi-gcc.exe"
+  Write-Host "Searching for arm-none-eabi-gcc.exe anywhere in arm-toolchain:"
+  Get-ChildItem -Path $arm_toolchain_dir -Recurse -Filter "arm-none-eabi-gcc.exe" | ForEach-Object {
+    Write-Host "  Found: $($_.FullName)"
+  }
   exit 1
 }
 
 Write-Information -MessageData "Removing extra files from Arm Embedded Toolchain" -InformationAction Continue
-Remove-Item "$arm_toolchain_dir\$arm_toolchain_subdir\share" -Recurse -ErrorAction Ignore
+Remove-Item "$arm_toolchain_root\share" -Recurse -ErrorAction Ignore
 
 Write-Information -MessageData "Combining Toolchains with Unix Tools" -InformationAction Continue
 
 # List what we're about to copy
-Write-Information -MessageData "Contents of ARM toolchain:" -InformationAction Continue
-Get-ChildItem -Path "$arm_toolchain_dir\$arm_toolchain_subdir" | ForEach-Object { Write-Information -MessageData "  - $($_.Name)" -InformationAction Continue }
+Write-Host "Contents of ARM toolchain root:"
+Get-ChildItem -Path $arm_toolchain_root | ForEach-Object { Write-Host "  - $($_.Name)" }
 
-Write-Information -MessageData "Contents of output usr folder before merge:" -InformationAction Continue
-Get-ChildItem -Path "./output/$toolchain_dir/usr" | ForEach-Object { Write-Information -MessageData "  - $($_.Name)" -InformationAction Continue }
+Write-Host "Contents of output usr folder before merge:"
+Get-ChildItem -Path "./output/$toolchain_dir/usr" | ForEach-Object { Write-Host "  - $($_.Name)" }
 
-Get-ChildItem -Path "$arm_toolchain_dir\$arm_toolchain_subdir" | ForEach-Object {
+Get-ChildItem -Path $arm_toolchain_root | ForEach-Object {
   $itemName = $_.Name
-  $sourcePath = Join-Path "$arm_toolchain_dir\$arm_toolchain_subdir" $itemName
+  $sourcePath = $_.FullName
   $destPath = Join-Path "./output/$toolchain_dir/usr" $itemName
   
-  Write-Information -MessageData "Processing: $itemName" -InformationAction Continue
+  Write-Host "Processing: $itemName"
   
   if (Test-Path -Path $destPath) {
-    Write-Information -MessageData "  Merging into existing folder: $destPath" -InformationAction Continue
+    Write-Host "  Merging into existing folder: $destPath"
     Copy-Item -Path "$sourcePath\*" -Destination $destPath -Recurse -Force
   }
   else {
-    Write-Information -MessageData "  Copying new folder to: ./output/$toolchain_dir/usr" -InformationAction Continue
+    Write-Host "  Copying new folder to: ./output/$toolchain_dir/usr"
     Copy-Item -Path $sourcePath -Destination "./output/$toolchain_dir/usr" -Recurse -Force
   }
 }
 
-Write-Information -MessageData "Contents of output usr folder after merge:" -InformationAction Continue
-Get-ChildItem -Path "./output/$toolchain_dir/usr" | ForEach-Object { Write-Information -MessageData "  - $($_.Name)" -InformationAction Continue }
+Write-Host "Contents of output usr folder after merge:"
+Get-ChildItem -Path "./output/$toolchain_dir/usr" | ForEach-Object { Write-Host "  - $($_.Name)" }
 
 # Verify arm-none-eabi-gcc exists
 $gccPath = "./output/$toolchain_dir/usr/bin/arm-none-eabi-gcc.exe"
 if (Test-Path $gccPath) {
-    Write-Information -MessageData "SUCCESS: ARM GCC found at $gccPath" -InformationAction Continue
+    Write-Host "SUCCESS: ARM GCC found at $gccPath"
 } else {
     Write-Error "FAILED: ARM GCC not found at $gccPath"
+    Write-Host "Contents of bin folder:"
+    Get-ChildItem -Path "./output/$toolchain_dir/usr/bin" -Filter "arm-*" | ForEach-Object { Write-Host "  $($_.Name)" }
     exit 1
 }
 
